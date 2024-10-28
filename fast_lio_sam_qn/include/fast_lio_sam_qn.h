@@ -43,7 +43,7 @@
 ///// coded headers
 #include "loop_closure.h"
 #include "pose_pcd.hpp"
-#include <pose_graph_tools_msgs/LoopClosures.h>
+#include <pose_graph_tools_msgs/PoseGraph.h>
 #include "utilities.hpp"
 
 namespace fs = std::filesystem;
