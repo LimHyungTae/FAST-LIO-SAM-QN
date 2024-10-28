@@ -66,6 +66,7 @@ FastLioSamQn::FastLioSamQn(const ros::NodeHandle &n_private):
     corrected_pcd_map_pub_ = nh_.advertise<sensor_msgs::PointCloud2>("/corrected_map", 10, true);
     corrected_current_pcd_pub_ = nh_.advertise<sensor_msgs::PointCloud2>("/corrected_current_pcd", 10, true);
     loop_detection_pub_ = nh_.advertise<visualization_msgs::Marker>("/loop_detection", 10, true);
+    loop_closures_pub_ = nh_.advertise<pose_graph_tools_msgs::LoopClosures>("/loop_closures", 10);
     realtime_pose_pub_ = nh_.advertise<geometry_msgs::PoseStamped>("/pose_stamped", 10);
     debug_src_pub_ = nh_.advertise<sensor_msgs::PointCloud2>("/src", 10, true);
     debug_dst_pub_ = nh_.advertise<sensor_msgs::PointCloud2>("/dst", 10, true);
@@ -235,12 +236,29 @@ void FastLioSamQn::loopTimerFunc(const ros::TimerEvent &event)
         loop_idx_pairs_.push_back({latest_keyframe.idx_, closest_keyframe_idx}); // for vis
         loop_added_flag_vis_ = true;
         loop_added_flag_ = true;
-    }
-    else
-    {
-        ROS_WARN("Loop closure rejected. Score: %.3f", reg_output.score_);
-    }
-    high_resolution_clock::time_point t2 = high_resolution_clock::now();
+    
+        pose_graph_tools_msgs::PoseGraphEdge edge;
+        edge.key_from = static_cast<uint64_t>(latest_keyframe.timestamp_ * 1e9);
+        edge.key_to = static_cast<uint64_t>(keyframes_[closest_keyframe_idx].timestamp_ * 1e9);
+        std::cout << latest_keyframe.timestamp_  <<  " --> " <<  edge.key_from << std::endl;
+        std::cout << keyframes_[closest_keyframe_idx].timestamp_  <<  " --> " <<  edge.key_to << std::endl;
+        edge.robot_from = 0;
+        edge.robot_to = 0;
+        edge.type = 1;
+        edge.pose = poseEigToPoseGeo(pose_from.matrix().inverse() * pose_to.matrix());
+
+        pose_graph_tools_msgs::LoopClosures lc_msg;
+        lc_msg.publishing_robot_id = 0;
+        lc_msg.destination_robot_id = 0;
+        lc_msg.edges.emplace_back(edge);
+
+        loop_closures_pub_.publish(lc_msg);
+  }
+  else 
+  { 
+      ROS_WARN("Loop closure rejected. Score: %.3f", reg_output.score_);
+  }
+  high_resolution_clock::time_point t2 = high_resolution_clock::now();
 
     debug_src_pub_.publish(pclToPclRos(loop_closure_->getSourceCloud(), map_frame_));
     debug_dst_pub_.publish(pclToPclRos(loop_closure_->getTargetCloud(), map_frame_));

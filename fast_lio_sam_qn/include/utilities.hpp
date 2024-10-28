@@ -110,6 +110,24 @@ inline geometry_msgs::PoseStamped poseEigToPoseStamped(const Eigen::Matrix4d &po
     return pose;
 }
 
+inline geometry_msgs::Pose poseEigToPoseGeo(const Eigen::Matrix4d &pose_eig_in, std::string frame_id="map")
+{
+	double r, p, y;
+	tf::Matrix3x3 mat;
+	tf::matrixEigenToTF(pose_eig_in.block<3, 3>(0, 0), mat);
+	mat.getRPY(r, p, y);
+	tf::Quaternion quat = tf::createQuaternionFromRPY(r, p, y);
+	geometry_msgs::Pose pose;
+	pose.position.x = pose_eig_in(0, 3);
+	pose.position.y = pose_eig_in(1, 3);
+	pose.position.z = pose_eig_in(2, 3);
+	pose.orientation.w = quat.getW();
+	pose.orientation.x = quat.getX();
+	pose.orientation.y = quat.getY();
+	pose.orientation.z = quat.getZ();
+	return pose;
+}
+
 inline tf::Transform poseEigToROSTf(const Eigen::Matrix4d &pose)
 {
     Eigen::Quaterniond quat(pose.block<3, 3>(0, 0));

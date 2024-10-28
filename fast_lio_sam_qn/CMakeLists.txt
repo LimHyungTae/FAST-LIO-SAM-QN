@@ -32,6 +32,8 @@ find_package(catkin REQUIRED COMPONENTS
   message_filters
   nano_gicp
   quatro
+  pose_graph_tools_ros
+  pose_graph_tools_msgs
 )
 find_package(PCL REQUIRED)
 find_package(Eigen3 REQUIRED)

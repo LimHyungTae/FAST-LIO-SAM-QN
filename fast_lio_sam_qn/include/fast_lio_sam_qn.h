@@ -43,6 +43,7 @@
 ///// coded headers
 #include "loop_closure.h"
 #include "pose_pcd.hpp"
+#include <pose_graph_tools_msgs/LoopClosures.h>
 #include "utilities.hpp"
 
 namespace fs = std::filesystem;
@@ -89,6 +90,7 @@ private:
     ros::Publisher corrected_odom_pub_, corrected_path_pub_, odom_pub_, path_pub_;
     ros::Publisher corrected_current_pcd_pub_, corrected_pcd_map_pub_, loop_detection_pub_;
     ros::Publisher realtime_pose_pub_;
+    ros::Publisher loop_closures_pub_;
     ros::Publisher debug_src_pub_, debug_dst_pub_, debug_coarse_aligned_pub_, debug_fine_aligned_pub_;
     ros::Subscriber sub_save_flag_;
     ros::Timer loop_timer_, vis_timer_;

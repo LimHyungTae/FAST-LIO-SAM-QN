@@ -26,6 +26,9 @@
   <build_depend>message_filters</build_depend>
   <build_depend>nano_gicp</build_depend>
   <build_depend>quatro</build_depend>
+  <build_depend>spark_dsg</build_depend>
+  <build_depend>pose_graph_tools_ros</build_depend>
+  <build_depend>pose_graph_tools_msgs</build_depend>
 
   <run_depend>roscpp</run_depend>
   <run_depend>roslib</run_depend>
@@ -42,6 +45,8 @@
   <run_depend>message_filters</run_depend>
   <run_depend>nano_gicp</run_depend>
   <run_depend>quatro</run_depend>
+  <run_depend>pose_graph_tools_ros</run_depend>
+  <run_depend>pose_graph_tools_msgs</run_depend>
 
   <export>
   </export>
