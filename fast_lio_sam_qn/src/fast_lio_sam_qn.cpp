@@ -66,7 +66,7 @@ FastLioSamQn::FastLioSamQn(const ros::NodeHandle &n_private):
     corrected_pcd_map_pub_ = nh_.advertise<sensor_msgs::PointCloud2>("/corrected_map", 10, true);
     corrected_current_pcd_pub_ = nh_.advertise<sensor_msgs::PointCloud2>("/corrected_current_pcd", 10, true);
     loop_detection_pub_ = nh_.advertise<visualization_msgs::Marker>("/loop_detection", 10, true);
-    loop_closures_pub_ = nh_.advertise<pose_graph_tools_msgs::PoseGraph>("/loop_closures", 10);
+    loop_closures_pub_ = nh_.advertise<pose_graph_tools_msgs::PoseGraph>("/hydra_ros_node/external_loop_closures", 10);
     realtime_pose_pub_ = nh_.advertise<geometry_msgs::PoseStamped>("/pose_stamped", 10);
     debug_src_pub_ = nh_.advertise<sensor_msgs::PointCloud2>("/src", 10, true);
     debug_dst_pub_ = nh_.advertise<sensor_msgs::PointCloud2>("/dst", 10, true);
@@ -189,13 +189,13 @@ void FastLioSamQn::odomPcdCallback(const nav_msgs::OdometryConstPtr &odom_msg,
             }
             high_resolution_clock::time_point t6 = high_resolution_clock::now();
 
-            ROS_INFO("real: %.1f, key_add: %.1f, vis: %.1f, opt: %.1f, res: %.1f, tot: %.1fms",
+            ROS_INFO("real: %.1f, key_add: %.1f, vis: %.1f, opt: %.1f, res: %.1f, tot: %.1fms, # keyframes: %i",
                      duration_cast<microseconds>(t2 - t1).count() / 1e3,
                      duration_cast<microseconds>(t3 - t2).count() / 1e3,
                      duration_cast<microseconds>(t4 - t3).count() / 1e3,
                      duration_cast<microseconds>(t5 - t4).count() / 1e3,
                      duration_cast<microseconds>(t6 - t5).count() / 1e3,
-                     duration_cast<microseconds>(t6 - t1).count() / 1e3);
+                     duration_cast<microseconds>(t6 - t1).count() / 1e3, keyframes_.size());
         }
     }
     return;
@@ -238,18 +238,21 @@ void FastLioSamQn::loopTimerFunc(const ros::TimerEvent &event)
     
         pose_graph_tools_msgs::PoseGraphEdge edge;
         edge.header.stamp = ros::Time(latest_keyframe.timestamp_);
-        edge.key_from = static_cast<uint64_t>(latest_keyframe.timestamp_ * 1e9);
-        edge.key_to = static_cast<uint64_t>(keyframes_[closest_keyframe_idx].timestamp_ * 1e9);
         std::cout << latest_keyframe.timestamp_  <<  " --> " <<  edge.key_from << std::endl;
         std::cout << keyframes_[closest_keyframe_idx].timestamp_  <<  " --> " <<  edge.key_to << std::endl;
         edge.robot_from = 0;
         edge.robot_to = 0;
         edge.type = 1;
-        edge.pose = poseEigToPoseGeo(pose_from.matrix().inverse() * pose_to.matrix());
-        static int diagonal_indices[] = {0, 7, 14, 21, 28, 35};
-        for (size_t i = 0; i < 6; ++i) {
-            edge.covariance[diagonal_indices[i]] = score;
-        }
+    
+        // NOTE(hlim) It's very confusing, 
+        // but `key_from` and `key_to` in Hydra are used as the opposite concept.
+        // Here we use that term as {from}_T_{to}, but Hydra follows {to}_T_{from} convention
+        // Therefore, `pose_to.matrix().inverse() * pose_from.matrix()` should be given, 
+        // not pose_from.between(pose_to)!
+        edge.key_to = static_cast<uint64_t>(latest_keyframe.timestamp_ * 1e9);
+        edge.key_from = static_cast<uint64_t>(keyframes_[closest_keyframe_idx].timestamp_ * 1e9);
+        edge.pose = poseEigToPoseGeo(pose_to.matrix().inverse() * pose_from.matrix());
+
         pose_graph_tools_msgs::PoseGraph lc_msg;
         lc_msg.edges.emplace_back(edge);
         loop_closures_pub_.publish(lc_msg);
