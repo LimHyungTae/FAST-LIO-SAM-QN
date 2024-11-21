@@ -4,12 +4,13 @@ FastLioSamQn::FastLioSamQn(const ros::NodeHandle &n_private):
     nh_(n_private)
 {
     ////// ROS params
-    double loop_update_hz, vis_hz;
+    double loop_pub_hz, loop_update_hz, vis_hz;
     LoopClosureConfig lc_config;
     auto &gc = lc_config.gicp_config_;
     auto &qc = lc_config.quatro_config_;
     /* basic */
     nh_.param<std::string>("/basic/map_frame", map_frame_, "map");
+    nh_.param<double>("/basic/loop_pub_hz", loop_pub_hz, 0.1); // NOTE(hlim) It should be slow
     nh_.param<double>("/basic/loop_update_hz", loop_update_hz, 1.0);
     nh_.param<double>("/basic/vis_hz", vis_hz, 0.5);
     nh_.param<double>("/save_voxel_resolution", voxel_res_, 0.3);
@@ -79,6 +80,7 @@ FastLioSamQn::FastLioSamQn(const ros::NodeHandle &n_private):
     sub_odom_pcd_sync_->registerCallback(boost::bind(&FastLioSamQn::odomPcdCallback, this, _1, _2));
     sub_save_flag_ = nh_.subscribe("/save_dir", 1, &FastLioSamQn::saveFlagCallback, this);
     /* Timers */
+    loop_pub_timer_ = nh_.createTimer(ros::Duration(1 / loop_pub_hz), &FastLioSamQn::loopPubTimerFunc, this);
     loop_timer_ = nh_.createTimer(ros::Duration(1 / loop_update_hz), &FastLioSamQn::loopTimerFunc, this);
     vis_timer_ = nh_.createTimer(ros::Duration(1 / vis_hz), &FastLioSamQn::visTimerFunc, this);
     ROS_INFO("Main class, starting node...");
@@ -201,6 +203,23 @@ void FastLioSamQn::odomPcdCallback(const nav_msgs::OdometryConstPtr &odom_msg,
     return;
 }
 
+void FastLioSamQn::loopPubTimerFunc(const ros::TimerEvent &event)
+{
+  if (loop_msgs_.edges.empty()) {
+    ROS_WARN("`loop_msgs_.edges` is empty. Skipping loop closure publishing.");
+    return;
+  }
+
+  // This 20 seconds is to take the delay in Hydra take into account
+  if (last_lc_time_ + 20.0 < ros::Time::now().toSec()) {
+    loop_closures_pub_.publish(loop_msgs_);
+    loop_msgs_.nodes.clear();
+    loop_msgs_.edges.clear();
+    ROS_INFO("\033[1;32m`loop_msgs_` is successfully published!\033[0m");
+    return;
+  }
+}
+
 void FastLioSamQn::loopTimerFunc(const ros::TimerEvent &event)
 {
     auto &latest_keyframe = keyframes_.back();
@@ -237,25 +256,30 @@ void FastLioSamQn::loopTimerFunc(const ros::TimerEvent &event)
         loop_added_flag_ = true;
     
         pose_graph_tools_msgs::PoseGraphEdge edge;
-        edge.header.stamp = ros::Time(latest_keyframe.timestamp_);
+        // ----------------------------------------------------
+        // In FAST-LIO2, odometry time is w.r.t. LiDAR end time
+        double lidar_end_time_compensation = 0.1;
+        // ----------------------------------------------------
+        edge.header.stamp = ros::Time(latest_keyframe.timestamp_ - lidar_end_time_compensation);
         std::cout << latest_keyframe.timestamp_  <<  " --> " <<  edge.key_from << std::endl;
         std::cout << keyframes_[closest_keyframe_idx].timestamp_  <<  " --> " <<  edge.key_to << std::endl;
         edge.robot_from = 0;
         edge.robot_to = 0;
         edge.type = 1;
-    
+    //
         // NOTE(hlim) It's very confusing, 
         // but `key_from` and `key_to` in Hydra are used as the opposite concept.
         // Here we use that term as {from}_T_{to}, but Hydra follows {to}_T_{from} convention
         // Therefore, `pose_to.matrix().inverse() * pose_from.matrix()` should be given, 
         // not pose_from.between(pose_to)!
-        edge.key_to = static_cast<uint64_t>(latest_keyframe.timestamp_ * 1e9);
-        edge.key_from = static_cast<uint64_t>(keyframes_[closest_keyframe_idx].timestamp_ * 1e9);
+        edge.key_to = static_cast<uint64_t>((latest_keyframe.timestamp_
+                                            - lidar_end_time_compensation)* 1e9);
+        edge.key_from = static_cast<uint64_t>((keyframes_[closest_keyframe_idx].timestamp_ 
+                                              - lidar_end_time_compensation) * 1e9);
         edge.pose = poseEigToPoseGeo(pose_to.matrix().inverse() * pose_from.matrix());
 
-        pose_graph_tools_msgs::PoseGraph lc_msg;
-        lc_msg.edges.emplace_back(edge);
-        loop_closures_pub_.publish(lc_msg);
+        loop_msgs_.edges.emplace_back(edge);
+        last_lc_time_ = ros::Time::now().toSec();
   }
   else 
   { 

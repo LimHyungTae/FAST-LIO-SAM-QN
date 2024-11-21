@@ -78,6 +78,7 @@ private:
     double voxel_res_;
     int sub_key_num_;
     std::vector<std::pair<size_t, size_t>> loop_idx_pairs_; // for vis
+    pose_graph_tools_msgs::PoseGraph loop_msgs_; // for Hydra pipeline
     ///// visualize
     tf::TransformBroadcaster broadcaster_;
     pcl::PointCloud<pcl::PointXYZ> odoms_, corrected_odoms_;
@@ -93,7 +94,11 @@ private:
     ros::Publisher loop_closures_pub_;
     ros::Publisher debug_src_pub_, debug_dst_pub_, debug_coarse_aligned_pub_, debug_fine_aligned_pub_;
     ros::Subscriber sub_save_flag_;
-    ros::Timer loop_timer_, vis_timer_;
+    ros::Timer loop_pub_timer_;
+    ros::Timer loop_timer_; 
+    ros::Timer vis_timer_;
+
+    double last_lc_time_;
     // odom, pcd sync, and save flag subscribers
     std::shared_ptr<message_filters::Synchronizer<odom_pcd_sync_pol>> sub_odom_pcd_sync_ = nullptr;
     std::shared_ptr<message_filters::Subscriber<nav_msgs::Odometry>> sub_odom_ = nullptr;
@@ -114,6 +119,7 @@ private:
     void odomPcdCallback(const nav_msgs::OdometryConstPtr &odom_msg,
                          const sensor_msgs::PointCloud2ConstPtr &pcd_msg);
     void saveFlagCallback(const std_msgs::String::ConstPtr &msg);
+    void loopPubTimerFunc(const ros::TimerEvent &event);
     void loopTimerFunc(const ros::TimerEvent &event);
     void visTimerFunc(const ros::TimerEvent &event);
 };
