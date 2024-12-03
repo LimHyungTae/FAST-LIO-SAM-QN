@@ -76,6 +76,7 @@ private:
     gtsam::Values corrected_esti_;
     double keyframe_thr_;
     double voxel_res_;
+    double loop_pub_delayed_time_;
     int sub_key_num_;
     std::vector<std::pair<size_t, size_t>> loop_idx_pairs_; // for vis
     pose_graph_tools_msgs::PoseGraph loop_msgs_; // for Hydra pipeline

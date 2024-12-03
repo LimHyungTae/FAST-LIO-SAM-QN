@@ -1,6 +1,7 @@
 basic:
   map_frame: "map"                            # publish frame
   loop_update_hz: 2.0                         # Loop detection Hz
+  loop_pub_delayed_time: 60.0                 # unit: sec
   vis_hz: 1.0                                 # visualize Hz
 
 keyframe:

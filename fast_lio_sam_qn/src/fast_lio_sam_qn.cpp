@@ -12,6 +12,7 @@ FastLioSamQn::FastLioSamQn(const ros::NodeHandle &n_private):
     nh_.param<std::string>("/basic/map_frame", map_frame_, "map");
     nh_.param<double>("/basic/loop_pub_hz", loop_pub_hz, 0.1); // NOTE(hlim) It should be slow
     nh_.param<double>("/basic/loop_update_hz", loop_update_hz, 1.0);
+    nh_.param<double>("/basic/loop_pub_delayed_time", loop_pub_delayed_time_, 60.0);
     nh_.param<double>("/basic/vis_hz", vis_hz, 0.5);
     nh_.param<double>("/save_voxel_resolution", voxel_res_, 0.3);
     nh_.param<double>("/quatro_nano_gicp_voxel_resolution", lc_config.voxel_res_, 0.3);
@@ -211,7 +212,7 @@ void FastLioSamQn::loopPubTimerFunc(const ros::TimerEvent &event)
   }
 
   // This 20 seconds is to take the delay in Hydra take into account
-  if (last_lc_time_ + 20.0 < ros::Time::now().toSec()) {
+  if (last_lc_time_ + loop_pub_delayed_time_ < ros::Time::now().toSec()) {
     loop_closures_pub_.publish(loop_msgs_);
     loop_msgs_.nodes.clear();
     loop_msgs_.edges.clear();
